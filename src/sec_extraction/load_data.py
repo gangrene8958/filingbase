@@ -10,6 +10,8 @@ load_dotenv()
 
 tickers_url = "https://www.sec.gov/files/company_tickers.json"
 
+
+
 def to_company_rows(data: dict) -> list[tuple]:
     df = pd.DataFrame(list(data.values()))
     df = df.rename(columns={
@@ -35,7 +37,8 @@ def upsert_dim_company(conn, rows: list[tuple]):
             OR silver.dim_company.company_name   IS DISTINCT FROM EXCLUDED.company_name
 
     """
-
+    with conn.cursor() as cur:
+        cur.executemany(query, rows)
 
 def main():
     session = get_session()
@@ -43,7 +46,7 @@ def main():
     rows = to_company_rows(data)
 
     with get_connection() as conn:
-        upsert_dim_company(conn, rows)
+        upsert_companies(conn, rows)
 
     print(f"{len(rows)} companies loaded")
 
