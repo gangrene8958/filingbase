@@ -9,8 +9,7 @@ from sec_extraction.sec_client import get_json, get_session
 load_dotenv()
 
 tickers_url = "https://www.sec.gov/files/company_tickers.json"
-
-
+tickers_exchange_url = "https://www.sec.gov/files/company_tickers_exchange.json"
 
 def to_company_rows(data: dict) -> list[tuple]:
     df = pd.DataFrame(list(data.values()))
@@ -40,15 +39,50 @@ def upsert_dim_company(conn, rows: list[tuple]):
     with conn.cursor() as cur:
         cur.executemany(query, rows)
 
+
+
+def to_ticker_rows(data):
+    df = pd.DataFrame(data["data"], columns = data["fields"])
+    df = df.drop_duplicates(subset="ticker", keep="first")
+    df["cik"] = df["cik"].astype(int)
+    return list(df[["cik", "ticker", "exchange"]].itertuples(index=False, name=None))
+
+def upsert_dim_ticker(conn, rows: list[tuple]):
+
+    """Inserts and updates companies from dim_ticker"""
+
+    query = """
+            INSERT INTO silver.dim_ticker (cik, ticker, exchange)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (ticker) DO UPDATE SET
+            cik            = EXCLUDED.cik,
+            exchange   = EXCLUDED.exchange,
+            updated_at     = now()
+            WHERE silver.dim_ticker.cik IS DISTINCT FROM EXCLUDED.cik
+            """
+    with conn.cursor() as cur:
+        cur.executemany(query, rows)
+
+
 def main():
     session = get_session()
-    data = get_json(session, tickers_url)
-    rows = to_company_rows(data)
+    data_cik = get_json(session, tickers_url)
+    data_exchange = get_json(session, tickers_exchange_url)
+
+    company_rows = to_company_rows(data_cik)   # adaptada al format _exchange
+    ticker_rows = to_ticker_rows(data_exchange)
+
+    print("rows:", len(ticker_rows))
+    print("first:", ticker_rows[:3])
 
     with get_connection() as conn:
-        upsert_companies(conn, rows)
+        upsert_dim_company(conn, company_rows)
+        upsert_dim_ticker(conn, ticker_rows)
+        print("in db:", conn.execute("SELECT count(*) FROM silver.dim_ticker").fetchone())
 
-    print(f"{len(rows)} companies loaded")
+
+    print(f"{len(company_rows)} companies and {len(ticker_rows)} tickers loaded")
 
 
-main()
+  if __name__ == "__main__":
+      main()

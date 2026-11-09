@@ -49,7 +49,6 @@ CREATE TABLE silver.dim_ticker (
     ticker      text        PRIMARY KEY,
     cik         int         NOT NULL REFERENCES silver.dim_company (cik),
     exchange    text,
-    is_primary  boolean     NOT NULL DEFAULT false,
     created_at  timestamptz NOT NULL DEFAULT now(),
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
