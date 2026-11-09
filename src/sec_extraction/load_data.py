@@ -84,5 +84,5 @@ def main():
     print(f"{len(company_rows)} companies and {len(ticker_rows)} tickers loaded")
 
 
-  if __name__ == "__main__":
+if __name__ == "__main__":
       main()
