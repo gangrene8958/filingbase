@@ -60,7 +60,7 @@ PostgreSQL schemas: `silver`, `gold`, `ops`. The full definition is in [`sql/sch
 | gold | `dim_metric` | One row per standardized metric | Planned |
 | gold | `concept_mapping` | Which XBRL concepts feed each metric | Planned |
 | gold | `fact_metrics` | Company × metric × fiscal period | Planned |
-| ops | `pipeline_runs` | One row per pipeline execution | Planned |
+| ops | `pipeline_runs` | One row per pipeline execution | Loaded |
 | ops | `filings_queue` | One row per discovered filing and its load status | Planned |
  
 ```
