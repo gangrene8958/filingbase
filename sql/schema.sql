@@ -191,6 +191,8 @@ CREATE INDEX fact_metrics_metric_idx ON gold.fact_metrics (metric);
  
 CREATE TABLE ops.pipeline_runs (
     run_id             bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    pipeline           text        NOT NULL,
+    pipeline_name      text,
     mode               text        NOT NULL,
     status             text        NOT NULL DEFAULT 'running',
     code_version       text,                        -- git commit hash
@@ -201,7 +203,7 @@ CREATE TABLE ops.pipeline_runs (
     filings_failed     int         NOT NULL DEFAULT 0,
  
     CONSTRAINT pipeline_runs_mode_valid
-        CHECK (mode IN ('backfill', 'incremental')),
+        CHECK (mode IN ('full','backfill', 'incremental')),
     CONSTRAINT pipeline_runs_status_valid
         CHECK (status IN ('running', 'success', 'failed'))
 );
