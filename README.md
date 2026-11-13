@@ -61,7 +61,7 @@ PostgreSQL schemas: `silver`, `gold`, `ops`. The full definition is in [`sql/sch
 | gold | `concept_mapping` | Which XBRL concepts feed each metric | Planned |
 | gold | `fact_metrics` | Company × metric × fiscal period | Planned |
 | ops | `pipeline_runs` | One row per pipeline execution | Loaded |
-| ops | `filings_queue` | One row per discovered filing and its load status | Planned |
+| ops | `filings_queue` | One row per discovered filing and its load status | Loaded |
  
 ```
             dim_ticker
@@ -155,8 +155,8 @@ filingbase/
 ## Roadmap
  
 1. **Reference data** — companies and tickers (done)
-2. **Raw archive** — save every SEC download to the bronze layer, building a history of company and ticker snapshots
-3. **Filings** — discover 10-K / 10-Q filings for tracked companies and track them in a load queue
+2. **Raw archive** — save every SEC download to the bronze layer, building a history of company and ticker snapshots (done)
+3. **Filings** — discover 10-K / 10-Q filings for tracked companies and track them in a load queue (done)
 4. **XBRL facts** — parse and load every reported figure, starting with a small set of companies and validating them by hand
 5. **Historical backfill** — at least 10 years of filings, possibly extended further back; resumable and idempotent
 6. **Gold metrics** — concept mapping, derived Q4 values, standardized quarterly and annual metrics
