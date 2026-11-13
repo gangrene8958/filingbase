@@ -11,6 +11,9 @@ load_dotenv()
 init_edgar()
 
 
+portfolio = ["AAPL", "NVDA", "AMZN"]
+
+
 def control_table_load(conn, pipeline, pipeline_name, mode) -> int:
     """Inserts row of pipeline run in ops.pipeline_runs and returns run_id"""
 
@@ -99,38 +102,39 @@ def upsert_dim_ticker(conn, rows: list[tuple]):
     with conn.cursor() as cur:
         cur.executemany(query, rows)
 
-# def to_filing_rows(data):
-
-
-init_edgar()
-company = Company("AAPL")
-tenk = [filing for filing in company.get_filings() if filing.form == "10-K" ]
-
-
-for i in tenk:
-    print(i)
-
 
 def fetch_company_filings(ticker) -> list[tuple]:
-    edgar_initialization
+    init_edgar()
     company = Company(ticker)
     filings = [(filing.accession_no, filing.cik, filing.form, filing.filing_date) for filing in company.get_filings() if filing.form in ["10-K","10-Q"]]
     return filings
 
-def insert_ops_filing_que(conn, rows):
+def insert_ops_filing_queue(conn, rows):
 
-    """Inserts"""
+    """Inserts filings from tracked companies into ops.filings_queue"""
 
     query = """
-                INSERT INTO ops.filing_que (accession_number, cik, form_type, filed_date, finished_at)
+                INSERT INTO ops.filings_queue (accession_number, cik, form_type, filed_date)
                 VALUES (%s, %s, %s, %s)
-                ON CONFLICT (accesion_number) DO UPDATE SET
+                ON CONFLICT (accession_number) DO UPDATE SET
                 cik            = EXCLUDED.cik,
-                exchange   = EXCLUDED.exchange,
+                form_type      = EXCLUDED.form_type,
+                filed_date     = EXCLUDED.filed_date,
                 updated_at     = now()
-                WHERE silver.dim_ticker.cik IS DISTINCT FROM EXCLUDED.cik """
-    
+                WHERE filings_queue.cik IS DISTINCT FROM EXCLUDED.cik """
 
+    with conn.cursor() as cur:
+        cur.executemany(query, rows)
+
+def track_company(ticker_list):
+    query = """
+            UPDATE silver.dim_company SET tracked = true WHERE primary_ticker = %s
+
+            """
+    ticker_list_tuple = [(ticker,) for ticker in ticker_list]
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(query,ticker_list_tuple)
 
 def pipeline_load_dim_company():
     tickers_url = "https://www.sec.gov/files/company_tickers.json"
@@ -192,9 +196,47 @@ def pipeline_load_dim_ticker():
         with get_connection() as conn:
             pipeline_status_update(conn, run_id, status)
 
+def pipeline_load_filing_queue():
+
+    pipeline = "filings_discovery"
+    pipeline_name = "Load filing_queue"
+    mode = "full"
+    status = 'failed'
+    with get_connection() as conn:
+            run_id =  control_table_load(conn, pipeline, pipeline_name, mode)
+
+    try:
+        init_edgar()
+        retrieve_query = """
+        SELECT primary_ticker from silver.dim_company WHERE dim_company.tracked = true
+        """
+        with get_connection() as conn:
+
+            tickers = [row[0] for row in conn.cursor().execute(retrieve_query).fetchall()]
+            filings = [fetch_company_filings(ticker) for ticker in tickers]
+            filings = [filing for companies in filings for filing in companies]
+            insert_ops_filing_queue(conn, filings)
+            status = "success"
+        
+    except Exception as e:
+        print(f"Couldn't load filing filing queue: {e}")
+        raise
+
+    finally:
+        with get_connection() as conn:
+            pipeline_status_update(conn, run_id, status)
+
+
+     
+
+
+
 def main():
     pipeline_load_dim_company()
     pipeline_load_dim_ticker()
+    track_company(portfolio)
+    pipeline_load_filing_queue()
+
 
 if __name__ == "__main__":
        main()
